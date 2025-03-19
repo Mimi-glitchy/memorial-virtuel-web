@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Mémorial Virtuel de Prestige</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #0d0d0d, #1a1a1a);
+            color: white;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        h1, h2, h3 {
+            font-weight: 600;
+        }
+        button {
+            background: gold;
+            color: black;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #ffd700;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: none;
+        }
+        .entry {
+            border: 1px solid gold;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 15px;
+            background: rgba(255, 215, 0, 0.1);
+        }
+        .hidden { display: none; }
+        #timer { font-size: 24px; margin: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container" id="page-explanation">
+        <h1>Mémorial Virtuel de Prestige</h1>
+        <p>Offrez une trace éternelle de votre histoire dans un espace luxueux et intemporel.</p>
+        <ul>
+            <li><strong>Or :</strong> 200 caractères + 1 photo + 1 vidéo (100€)</li>
+            <li><strong>Platine :</strong> 600 caractères + 2 photos (350€)</li>
+            <li><strong>Diamant :</strong> 1200 caractères + 4 photos (550€)</li>
+        </ul>
+        <button onclick="goToNamePage()">Créer un hommage</button>
+        <button onclick="goToSearchPage()">Rechercher un hommage</button>
+    </div>
+
+    <div class="container hidden" id="page-name">
+        <h2>Entrez votre nom</h2>
+        <input type="text" id="userName" placeholder="Votre nom">
+        <h3>Choisissez un rang :</h3>
+        <select id="userRank" onchange="updateForm()">
+            <option value="or">Or (100€)</option>
+            <option value="platine">Platine (350€)</option>
+            <option value="diamant">Diamant (550€)</option>
+        </select>
+        <button onclick="goToFormPage()">Suivant</button>
+    </div>
+
+    <div class="container hidden" id="page-form">
+        <h2>Votre hommage</h2>
+        <textarea id="userStory" placeholder="Racontez votre histoire"></textarea>
+        <div id="photoUploads"></div>
+        <div id="videoUpload" class="hidden">
+            <h3>Ajoutez une vidéo :</h3>
+            <input type="file" id="userVideo" accept="video/*">
+        </div>
+        <button id="payButton" onclick="handlePayment()">Payer et publier</button>
+    </div>
+
+    <div class="container hidden" id="page-memorial">
+        <h2>Rechercher un hommage</h2>
+        <input type="text" id="searchBar" placeholder="Rechercher un nom" oninput="searchMemorial()">
+        <div id="memorialList"></div>
+        <div id="timer" class="hidden"></div>
+    </div>
+
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        const stripe = Stripe('pk_test_51R2vfEPqu9rDP89wO2QoT0Lx2Msy9bzL7bnxdnczkr4DndxsWTkcnEfQnjP49nGaYX7yu8FsjCn9nk8EGOYIcRfh00KZJ4QuC3');
+
+        const prices = {
+            'or': 'price_1R3cdHPqu9rDP89wdHtmpbnb',
+            'platine': 'price_1R3cgfPqu9rDP89weC0G0tmX',
+            'diamant': 'price_1R3cigPqu9rDP89wZZLfcLUX'
+        };
+
+        function goToNamePage() {
+            document.getElementById('page-explanation').classList.add('hidden');
+            document.getElementById('page-name').classList.remove('hidden');
+        }
+
+        function goToSearchPage() {
+            document.getElementById('page-explanation').classList.add('hidden');
+            document.getElementById('page-memorial').classList.remove('hidden');
+        }
+
+        function goToFormPage() {
+            document.getElementById('page-name').classList.add('hidden');
+            document.getElementById('page-form').classList.remove('hidden');
+            updateForm();
+        }
+
+        function updateForm() {
+            const rank = document.getElementById('userRank').value;
+            const story = document.getElementById('userStory');
+            const photoUploads = document.getElementById('photoUploads');
+            const videoUpload = document.getElementById('videoUpload');
+
+            const limits = {
+                'or': { charLimit: 200, photoLimit: 1, video: false },
+                'platine': { charLimit: 600, photoLimit: 2, video: true },
+                'diamant': { charLimit: 1200, photoLimit: 4, video: true }
+            };
+
+            story.maxLength = limits[rank].charLimit;
+            photoUploads.innerHTML = '';
+            for (let i = 0; i < limits[rank].photoLimit; i++) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                photoUploads.appendChild(input);
+            }
+
+            videoUpload.classList.toggle('hidden', !limits[rank].video);
+        }
+
+        async function handlePayment() {
+            const rank = document.getElementById('userRank').value;
+            try {
+                const { error } = await stripe.redirectToCheckout({
+                    lineItems: [{ price: prices[rank], quantity: 1 }],
+                    mode: 'payment',
+                    successUrl: window.location.href,
+                    cancelUrl: window.location.href,
+                });
+                if (error) throw error;
+            } catch (error) {
+                alert("Erreur lors du paiement : " + error.message);
+            }
+        }
+
+        function searchMemorial() {
+            const query = document.getElementById('searchBar').value.toLowerCase();
+            const memorialList = document.getElementById('memorialList');
+            memorialList.innerHTML = '';
+        }
+    </script>
+</body>
+</html>
